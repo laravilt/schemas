@@ -16,8 +16,8 @@ class Grid extends Component
     protected array $schema = [];
 
     /**
-     * @param  array<Component>  $components
-     *                                        Set number of columns.
+     * Set number of columns.
+     *
      * @param  int|array  $columns  Number of columns or responsive array [default => 1, sm => 2, md => 3, lg => 4]
      */
     public function columns(int|array $columns): static
@@ -28,8 +28,7 @@ class Grid extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get columns configuration.
+     * Get columns configuration.
      */
     public function getColumns(): int|array
     {
@@ -37,8 +36,9 @@ class Grid extends Component
     }
 
     /**
+     * Set the grid schema.
+     *
      * @param  array<Component>  $components
-     *                                        Set the grid schema.
      */
     public function schema(array $components): static
     {
@@ -48,8 +48,7 @@ class Grid extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get the schema.
+     * Get the schema.
      */
     public function getSchema(): array
     {
@@ -57,8 +56,7 @@ class Grid extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Serialize to Laravilt props.
+     * Serialize to Laravilt props.
      */
     public function toLaraviltProps(): array
     {

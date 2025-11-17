@@ -21,8 +21,7 @@ class Step extends Component
     protected string|Closure|null $icon = null;
 
     /**
-     * @param  array<Component>  $components
-     *                                        Set step label.
+     * Set step label.
      */
     public function label(string|Closure $label): static
     {
@@ -32,8 +31,7 @@ class Step extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get label.
+     * Get label.
      */
     public function getLabel(): ?string
     {
@@ -41,8 +39,7 @@ class Step extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Set description.
+     * Set description.
      */
     public function description(string|Closure $description): static
     {
@@ -52,8 +49,7 @@ class Step extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get description.
+     * Get description.
      */
     public function getDescription(): ?string
     {
@@ -61,8 +57,7 @@ class Step extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Set icon.
+     * Set icon.
      */
     public function icon(string|Closure $icon): static
     {
@@ -72,8 +67,7 @@ class Step extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get icon.
+     * Get icon.
      */
     public function getIcon(): ?string
     {
@@ -81,8 +75,9 @@ class Step extends Component
     }
 
     /**
+     * Set schema.
+     *
      * @param  array<Component>  $components
-     *                                        Set schema.
      */
     public function schema(array $components): static
     {
@@ -92,8 +87,7 @@ class Step extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get schema.
+     * Get schema.
      */
     public function getSchema(): array
     {
@@ -101,8 +95,7 @@ class Step extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Serialize to Laravilt props.
+     * Serialize to Laravilt props.
      */
     public function toLaraviltProps(): array
     {

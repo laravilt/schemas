@@ -23,8 +23,7 @@ class Section extends Component
     protected string|Closure|null $icon = null;
 
     /**
-     * @param  array<Component>  $components
-     *                                        Set the section heading.
+     * Set the section heading.
      */
     public function heading(string|Closure $heading): static
     {
@@ -34,8 +33,7 @@ class Section extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get the heading.
+     * Get the heading.
      */
     public function getHeading(): ?string
     {
@@ -43,8 +41,7 @@ class Section extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Set the description.
+     * Set the description.
      */
     public function description(string|Closure $description): static
     {
@@ -54,8 +51,7 @@ class Section extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get the description.
+     * Get the description.
      */
     public function getDescription(): ?string
     {
@@ -63,8 +59,7 @@ class Section extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Set the icon.
+     * Set the icon.
      */
     public function icon(string|Closure $icon): static
     {
@@ -74,8 +69,7 @@ class Section extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get the icon.
+     * Get the icon.
      */
     public function getIcon(): ?string
     {
@@ -83,8 +77,9 @@ class Section extends Component
     }
 
     /**
+     * Set the schema.
+     *
      * @param  array<Component>  $components
-     *                                        Set the schema.
      */
     public function schema(array $components): static
     {
@@ -94,8 +89,7 @@ class Section extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Get the schema.
+     * Get the schema.
      */
     public function getSchema(): array
     {
@@ -103,8 +97,7 @@ class Section extends Component
     }
 
     /**
-     * @param  array<Component>  $components
-     *                                        Serialize to Laravilt props.
+     * Serialize to Laravilt props.
      */
     public function toLaraviltProps(): array
     {
