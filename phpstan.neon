@@ -1,0 +1,6 @@
+parameters:
+    level: 5
+    paths:
+        - src
+    type_coverage:
+        param_type: 80

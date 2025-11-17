@@ -1,0 +1,7 @@
+providers:
+  - Laravilt\Support\SupportServiceProvider
+  - Laravilt\Schemas\SchemasServiceProvider
+
+workbench:
+    start: '/'
+    install: true
