@@ -13,40 +13,42 @@ class SchemasServiceProvider extends ServiceProvider
     {
         // Merge config
         $this->mergeConfigFrom(
-            __DIR__ . '/../config/laravilt-schemas.php',
+            __DIR__.'/../config/laravilt-schemas.php',
             'laravilt-schemas'
         );
-
-        // Register any services, bindings, or singletons here
     }
 
     /**
-     * Bootstrap services.
+     * Boot services.
      */
     public function boot(): void
     {
+        // Load views
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'laravilt-schemas');
 
         // Load translations
-        $this->loadTranslationsFrom(__DIR__ . '/../resources/lang', 'schemas');
-
-
+        $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'laravilt-schemas');
 
         if ($this->app->runningInConsole()) {
             // Publish config
             $this->publishes([
-                __DIR__ . '/../config/laravilt-schemas.php' => config_path('laravilt-schemas.php'),
+                __DIR__.'/../config/laravilt-schemas.php' => config_path('laravilt-schemas.php'),
             ], 'laravilt-schemas-config');
 
             // Publish assets
             $this->publishes([
-                __DIR__ . '/../dist' => public_path('vendor/laravilt/schemas'),
+                __DIR__.'/../dist' => public_path('vendor/laravilt/schemas'),
             ], 'laravilt-schemas-assets');
 
+            // Publish views
+            $this->publishes([
+                __DIR__.'/../resources/views' => resource_path('views/vendor/laravilt-schemas'),
+            ], 'laravilt-schemas-views');
 
-            // Register commands
-            $this->commands([
-                Commands\InstallSchemasCommand::class,
-            ]);
+            // Publish translations
+            $this->publishes([
+                __DIR__.'/../resources/lang' => lang_path('vendor/laravilt-schemas'),
+            ], 'laravilt-schemas-translations');
         }
     }
 }
