@@ -1,4 +1,4 @@
-![Schemas](./arts/screenshot.jpg)
+![schemas](https://raw.githubusercontent.com/laravilt/schemas/master/arts/screenshot.jpg)
 
 # Laravilt Schemas
 
