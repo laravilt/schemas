@@ -1,16 +1,28 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Schemas Language Lines
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines are used by the Schemas plugin.
-    | You are free to modify these language lines according to your
-    | application's requirements.
-    |
-    */
+    // Wizard Component
+    'wizard' => [
+        'submit_button_label' => 'Submit',
+        'next_button_label' => 'Next',
+        'previous_button_label' => 'Previous',
+        'skip_button_label' => 'Skip',
+    ],
 
-    // Add your translation messages here
+    // Tabs Component
+    'tabs' => [
+        'tab_label' => 'Tab',
+    ],
+
+    // Section Component
+    'section' => [
+        'expand' => 'Expand',
+        'collapse' => 'Collapse',
+    ],
+
+    // Common
+    'common' => [
+        'loading' => 'Loading...',
+        'error' => 'An error occurred',
+    ],
 ];

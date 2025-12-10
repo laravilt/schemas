@@ -22,6 +22,20 @@ class Section extends Component
 
     protected string|Closure|null $icon = null;
 
+    protected int|array|null $columns = null;
+
+    /**
+     * Create a new section instance. Name is optional for sections.
+     */
+    public static function make(?string $name = null): static
+    {
+        $static = app(static::class);
+        $static->name = $name ?? 'section';
+        $static->setUp();
+
+        return $static;
+    }
+
     /**
      * Set up the component - auto-populate heading from name if not set.
      */
@@ -29,13 +43,13 @@ class Section extends Component
     {
         parent::setUp();
 
-        // Auto-set heading from name if not explicitly set
-        if (is_null($this->heading)) {
+        // Auto-set heading from name if not explicitly set (but not if name is 'section')
+        if (is_null($this->heading) && $this->name !== 'section') {
             $this->heading = $this->name;
         }
 
         // Auto-generate ID from name (convert to snake_case)
-        if (! $this->id) {
+        if (! $this->id && $this->name) {
             $this->id($this->generateIdFromName($this->name));
         }
     }
@@ -110,6 +124,24 @@ class Section extends Component
     }
 
     /**
+     * Set the number of columns.
+     */
+    public function columns(int|array $columns): static
+    {
+        $this->columns = $columns;
+
+        return $this;
+    }
+
+    /**
+     * Get the number of columns.
+     */
+    public function getColumns(): int|array|null
+    {
+        return $this->columns;
+    }
+
+    /**
      * Set the schema.
      *
      * @param  array<Component>  $components
@@ -138,10 +170,13 @@ class Section extends Component
             'heading' => $this->getHeading(),
             'description' => $this->getDescription(),
             'icon' => $this->getIcon(),
+            'columns' => $this->getColumns(),
             'collapsible' => $this->isCollapsible(),
             'collapsed' => $this->isCollapsed(),
             'schema' => array_map(
-                fn (Component $component): array => $component->toLaraviltProps(),
+                fn ($component): array => method_exists($component, 'toLaraviltProps')
+                    ? $component->toLaraviltProps()
+                    : (method_exists($component, 'toArray') ? $component->toArray() : []),
                 $this->getSchema()
             ),
         ]);

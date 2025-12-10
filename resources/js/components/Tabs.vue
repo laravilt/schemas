@@ -1,6 +1,6 @@
 <template>
-    <Tabs :default-value="String(activeTab || 0)" class="w-full">
-        <TabsList class="w-full justify-start rtl:flex-row-reverse">
+    <Tabs :default-value="String(activeTab || 0)" :dir="dir" class="w-full" @update:model-value="handleTabChange">
+        <TabsList class="w-full justify-start">
             <TabsTrigger
                 v-for="(tab, index) in tabs"
                 :key="index"
@@ -28,27 +28,97 @@
             :value="String(index)"
             class="space-y-6 mt-6"
         >
-            <SchemaRenderer
-                v-if="tab.schema"
-                :schema="tab.schema"
-                :model-value="modelValue"
-                @update:model-value="(value) => emit('update:modelValue', value)"
-            />
+            <!-- Skeleton while loading -->
+            <Transition
+                enter-active-class="transition-opacity duration-150 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition-opacity duration-100 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+                mode="out-in"
+            >
+                <div v-if="isLoading && currentTab === String(index)" key="skeleton" class="space-y-6">
+                    <div class="bg-card rounded-xl border shadow-sm p-6 space-y-4">
+                        <div class="h-4 bg-muted/60 rounded w-1/4 animate-pulse"></div>
+                        <div class="space-y-3">
+                            <div class="h-10 bg-muted/60 rounded animate-pulse" style="animation-delay: 0ms"></div>
+                            <div class="h-10 bg-muted/60 rounded animate-pulse" style="animation-delay: 75ms"></div>
+                            <div class="h-10 bg-muted/60 rounded w-3/4 animate-pulse" style="animation-delay: 150ms"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actual content -->
+                <Schema
+                    v-else-if="tab.schema"
+                    key="content"
+                    :schema="tab.schema"
+                    :model-value="modelValue"
+                    @update:model-value="(value) => emit('update:modelValue', value)"
+                />
+            </Transition>
         </TabsContent>
     </Tabs>
 </template>
 
 <script setup lang="ts">
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import SchemaRenderer from './SchemaRenderer.vue'
+import Schema from './Schema.vue'
 import * as LucideIcons from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted, nextTick, Transition } from 'vue'
 
-defineProps<{
+const props = defineProps<{
     tabs: Array<any>
     activeTab?: number
     persistTabInQueryString?: boolean
     modelValue?: Record<string, any>
 }>()
+
+const isLoading = ref(false)
+const currentTab = ref(String(props.activeTab || 0))
+
+const handleTabChange = async (value: string) => {
+    if (value !== currentTab.value) {
+        isLoading.value = true
+        currentTab.value = value
+        await nextTick()
+        // Small delay to show skeleton
+        setTimeout(() => {
+            isLoading.value = false
+        }, 150)
+    }
+}
+
+// Reactive document direction for RTL support
+const dir = ref<'ltr' | 'rtl'>('ltr')
+let observer: MutationObserver | null = null
+
+onMounted(() => {
+    // Set initial direction
+    dir.value = (document.documentElement.dir as 'ltr' | 'rtl') || 'ltr'
+
+    // Watch for direction changes on the html element
+    observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.attributeName === 'dir') {
+                dir.value = (document.documentElement.dir as 'ltr' | 'rtl') || 'ltr'
+            }
+        }
+    })
+
+    observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['dir']
+    })
+})
+
+onUnmounted(() => {
+    if (observer) {
+        observer.disconnect()
+        observer = null
+    }
+})
 
 const emit = defineEmits<{
     'update:modelValue': [value: Record<string, any>]

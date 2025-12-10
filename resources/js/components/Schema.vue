@@ -49,8 +49,12 @@ const props = withDefaults(defineProps<{
     modelValue?: Record<string, any>
     schemaId?: string
     parentHandlesActions?: boolean
+    formController?: string
+    formMethod?: string
 }>(), {
     parentHandlesActions: false,
+    formController: undefined,
+    formMethod: 'getSchema',
 })
 
 const emit = defineEmits<{
@@ -259,6 +263,12 @@ const findFieldInSchema = (schema: any[], fieldName: string): any => {
 
 // Trigger reactive field update
 const triggerReactiveFieldUpdate = async (fieldName: string, field: any) => {
+    // Skip if no form controller is configured
+    if (!props.formController) {
+        console.warn('[Schema] No formController configured, skipping reactive field update')
+        return
+    }
+
     const debounceMs = field.isLazy
         ? (field.liveDebounce || 500)
         : (field.isLive && field.liveDebounce ? field.liveDebounce : 0)
@@ -266,8 +276,8 @@ const triggerReactiveFieldUpdate = async (fieldName: string, field: any) => {
     // TODO: Implement debouncing if needed
     try {
         const payload = {
-            controller: 'App\\Http\\Controllers\\DemoController',
-            method: 'getSchema',
+            controller: props.formController,
+            method: props.formMethod || 'getSchema',
             data: internalFormData.value,
             changed_field: fieldName,
         }
@@ -374,6 +384,8 @@ provide('getFormData', getFormData)
 provide('validateForm', validateForm)
 provide('updateSchema', updateSchema)
 provide('schemaId', props.schemaId || null)
+provide('formController', props.formController)
+provide('formMethod', props.formMethod)
 
 // Check if an item is an action
 const isAction = (item: any) => {
@@ -451,6 +463,7 @@ const componentMap: Record<string, any> = {
     rate_input: defineAsyncComponent(() => import('@laravilt/forms/components/fields/RateInput.vue')),
     checkbox_list: defineAsyncComponent(() => import('@laravilt/forms/components/fields/CheckboxList.vue')),
     slider: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Slider.vue')),
+    code_editor: defineAsyncComponent(() => import('@laravilt/forms/components/fields/CodeEditor.vue')),
 
     // InfoList Entry components
     text_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/TextEntry.vue')),

@@ -5,7 +5,7 @@
             :key="child.name || child.id || index"
             :class="getColumnSpanClass(child)"
         >
-            <SchemaRenderer
+            <Schema
                 :schema="[child]"
                 :model-value="modelValue"
                 @update:model-value="$emit('update:modelValue', $event)"
@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import SchemaRenderer from './SchemaRenderer.vue'
+import Schema from './Schema.vue'
 
 const props = defineProps<{
     columns: number | Record<string, number>
@@ -49,6 +49,11 @@ const gridClasses = computed(() => {
 
 const getColumnSpanClass = (child: any): string => {
     if (!child.columnSpan) return ''
+
+    // Handle 'full' string value from columnSpanFull()
+    if (child.columnSpan === 'full') {
+        return 'col-span-full'
+    }
 
     if (typeof child.columnSpan === 'number') {
         return `col-span-${child.columnSpan}`

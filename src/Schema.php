@@ -15,6 +15,8 @@ class Schema extends Component
 
     protected array $data = [];
 
+    protected int $gridColumns = 1;
+
     /**
      * Create a new schema instance.
      * Override parent to make name optional.
@@ -44,6 +46,24 @@ class Schema extends Component
     public function getSchema(): array
     {
         return $this->schema;
+    }
+
+    /**
+     * Set the number of columns for the schema grid layout.
+     */
+    public function columns(int $columns): static
+    {
+        $this->gridColumns = $columns;
+
+        return $this;
+    }
+
+    /**
+     * Get the number of grid columns.
+     */
+    public function getGridColumns(): int
+    {
+        return $this->gridColumns;
     }
 
     /**
@@ -144,6 +164,7 @@ class Schema extends Component
         $this->setEvaluationContextRecursive($this->schema, $data, $record);
 
         return array_merge(parent::toLaraviltProps(), [
+            'gridColumns' => $this->getGridColumns(),
             'schema' => array_map(
                 function ($item): array {
                     // Support both Components and Actions

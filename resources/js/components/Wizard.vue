@@ -48,7 +48,7 @@
                 type="button"
                 @click="previousStep"
                 class="wizard-button wizard-button-previous"
-                v-text="previousButtonLabel"
+                v-text="translatedPreviousButtonLabel"
             ></button>
 
             <button
@@ -56,23 +56,22 @@
                 type="button"
                 @click="skipStep"
                 class="wizard-button wizard-button-skip"
-            >
-                Skip
-            </button>
+                v-text="translatedSkipButtonLabel"
+            ></button>
 
             <button
                 v-if="!isLastStep"
                 type="button"
                 @click="nextStep"
                 class="wizard-button wizard-button-next"
-                v-text="nextButtonLabel"
+                v-text="translatedNextButtonLabel"
             ></button>
 
             <button
                 v-if="isLastStep"
                 type="submit"
                 class="wizard-button wizard-button-submit"
-                v-text="submitButtonLabel"
+                v-text="translatedSubmitButtonLabel"
             ></button>
         </div>
     </div>
@@ -80,6 +79,10 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useLocalization } from '@/composables/useLocalization';
+
+// Initialize localization
+const { trans } = useLocalization();
 
 const props = defineProps({
     steps: {
@@ -106,6 +109,10 @@ const props = defineProps({
         type: String,
         default: 'Previous'
     },
+    skipButtonLabel: {
+        type: String,
+        default: 'Skip'
+    },
     rtl: {
         type: Boolean,
         default: false
@@ -117,6 +124,12 @@ const props = defineProps({
 });
 
 const currentStepIndex = ref(props.currentStep);
+
+// Computed translated labels
+const translatedSubmitButtonLabel = computed(() => props.submitButtonLabel !== 'Submit' ? props.submitButtonLabel : trans('wizard.submit_button_label'));
+const translatedNextButtonLabel = computed(() => props.nextButtonLabel !== 'Next' ? props.nextButtonLabel : trans('wizard.next_button_label'));
+const translatedPreviousButtonLabel = computed(() => props.previousButtonLabel !== 'Previous' ? props.previousButtonLabel : trans('wizard.previous_button_label'));
+const translatedSkipButtonLabel = computed(() => props.skipButtonLabel !== 'Skip' ? props.skipButtonLabel : trans('wizard.skip_button_label'));
 
 const isLastStep = computed(() => {
     return currentStepIndex.value === props.steps.length - 1;
