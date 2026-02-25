@@ -434,60 +434,13 @@ const containerClass = computed(() => {
     return 'space-y-6'
 })
 
-
-// Map component types to their Vue components
-const componentMap: Record<string, any> = {
-    // Schema layout components
-    tabs: defineAsyncComponent(() => import('./Tabs.vue')),
-    section: defineAsyncComponent(() => import('./Section.vue')),
-    grid: defineAsyncComponent(() => import('./Grid.vue')),
-
-    // Form field components
-    text_input: defineAsyncComponent(() => import('@laravilt/forms/components/fields/TextInput.vue')),
-    textarea: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Textarea.vue')),
-    select: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Select.vue')),
-    checkbox: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Checkbox.vue')),
-    radio: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Radio.vue')),
-    toggle: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Toggle.vue')),
-    toggle_buttons: defineAsyncComponent(() => import('@laravilt/forms/components/fields/ToggleButtons.vue')),
-    hidden: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Hidden.vue')),
-    date_picker: defineAsyncComponent(() => import('@laravilt/forms/components/fields/DatePicker.vue')),
-    time_picker: defineAsyncComponent(() => import('@laravilt/forms/components/fields/TimePicker.vue')),
-    date_time_picker: defineAsyncComponent(() => import('@laravilt/forms/components/fields/DateTimePicker.vue')),
-    date_range_picker: defineAsyncComponent(() => import('@laravilt/forms/components/fields/DateRangePicker.vue')),
-    color_picker: defineAsyncComponent(() => import('@laravilt/forms/components/fields/ColorPicker.vue')),
-    file_upload: defineAsyncComponent(() => import('@laravilt/forms/components/fields/FileUpload.vue')),
-    rich_editor: defineAsyncComponent(() => import('@laravilt/forms/components/fields/RichEditor.vue')),
-    markdown_editor: defineAsyncComponent(() => import('@laravilt/forms/components/fields/MarkdownEditor.vue')),
-    tags_input: defineAsyncComponent(() => import('@laravilt/forms/components/fields/TagsInput.vue')),
-    key_value: defineAsyncComponent(() => import('@laravilt/forms/components/fields/KeyValue.vue')),
-    repeater: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Repeater.vue')),
-    builder: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Builder.vue')),
-    icon_picker: defineAsyncComponent(() => import('@laravilt/forms/components/fields/IconPicker.vue')),
-    number_field: defineAsyncComponent(() => import('@laravilt/forms/components/fields/NumberField.vue')),
-    pin_input: defineAsyncComponent(() => import('@laravilt/forms/components/fields/PinInput.vue')),
-    rate_input: defineAsyncComponent(() => import('@laravilt/forms/components/fields/RateInput.vue')),
-    checkbox_list: defineAsyncComponent(() => import('@laravilt/forms/components/fields/CheckboxList.vue')),
-    slider: defineAsyncComponent(() => import('@laravilt/forms/components/fields/Slider.vue')),
-    code_editor: defineAsyncComponent(() => import('@laravilt/forms/components/fields/CodeEditor.vue')),
-
-    // InfoList Entry components
-    text_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/TextEntry.vue')),
-    badge_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/BadgeEntry.vue')),
-    icon_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/IconEntry.vue')),
-    image_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/ImageEntry.vue')),
-    color_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/ColorEntry.vue')),
-    code_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/CodeEntry.vue')),
-    key_value_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/KeyValueEntry.vue')),
-    repeatable_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/RepeatableEntry.vue')),
+const toLaraviltName = (name: any) => {
+  if (!name) return
+  return 'laravilt-' + name.replaceAll('_', '-')
 }
 
 const getComponent = (component: any) => {
-    // Get component type from the component object
-    const type = component.component || 'div'
-
-    // Return the mapped component or a div fallback
-    return componentMap[type] || 'div'
+  return toLaraviltName(component.component) || 'div'
 }
 
 // Get component props, excluding value and modelValue since we set them explicitly
