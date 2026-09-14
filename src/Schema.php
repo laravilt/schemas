@@ -2,8 +2,14 @@
 
 namespace Laravilt\Schemas;
 
+use Illuminate\Support\Collection;
+use Laravilt\Actions\Action;
+use Laravilt\Forms\Components\Repeater;
+use Laravilt\Infolists\Entries\Entry;
 use Laravilt\Schemas\Concerns\HasSchema;
 use Laravilt\Support\Component;
+use Laravilt\Support\Utilities\Get;
+use Laravilt\Support\Utilities\Set;
 
 class Schema extends Component
 {
@@ -267,7 +273,7 @@ class Schema extends Component
     {
         foreach ($components as $component) {
             // For Entry components (infolists), use the fill method which handles relationships
-            if ($this->record !== null && method_exists($component, 'fill') && $component instanceof \Laravilt\Infolists\Entries\Entry) {
+            if ($this->record !== null && method_exists($component, 'fill') && $component instanceof Entry) {
                 $component->fill($this->record);
             }
             // For other components (form fields), use getName + state
@@ -286,7 +292,7 @@ class Schema extends Component
                             }
                             // Get the related IDs
                             $related = $this->record->{$relationshipName};
-                            if ($related instanceof \Illuminate\Support\Collection) {
+                            if ($related instanceof Collection) {
                                 $value = $related->pluck('id')->toArray();
                             }
                         } catch (\Throwable $e) {
@@ -509,7 +515,7 @@ class Schema extends Component
 
         foreach ($components as $component) {
             // Skip actions
-            if ($component instanceof \Laravilt\Actions\Action) {
+            if ($component instanceof Action) {
                 continue;
             }
 
@@ -561,7 +567,7 @@ class Schema extends Component
 
         foreach ($components as $component) {
             // Skip actions
-            if ($component instanceof \Laravilt\Actions\Action) {
+            if ($component instanceof Action) {
                 continue;
             }
 
@@ -616,7 +622,7 @@ class Schema extends Component
 
         foreach ($components as $component) {
             // Skip actions
-            if ($component instanceof \Laravilt\Actions\Action) {
+            if ($component instanceof Action) {
                 continue;
             }
 
@@ -664,7 +670,7 @@ class Schema extends Component
 
         foreach ($components as $component) {
             // Skip actions
-            if ($component instanceof \Laravilt\Actions\Action) {
+            if ($component instanceof Action) {
                 continue;
             }
 
@@ -799,10 +805,10 @@ class Schema extends Component
         $itemDataRef = &$data[$repeaterName][$repeaterIndex];
 
         // Create a Get object that operates on the item data
-        $scopedGet = new \Laravilt\Support\Utilities\Get($itemDataRef);
+        $scopedGet = new Get($itemDataRef);
 
         // Create a Set object that operates on the item data
-        $scopedSet = new \Laravilt\Support\Utilities\Set($itemDataRef);
+        $scopedSet = new Set($itemDataRef);
 
         \Log::info('[Schema] Executing Repeater callback with scoped Get/Set', [
             'itemData' => $itemDataRef,
@@ -834,7 +840,7 @@ class Schema extends Component
     {
         foreach ($components as $component) {
             // Check if this is the Repeater we're looking for
-            if ($component instanceof \Laravilt\Forms\Components\Repeater) {
+            if ($component instanceof Repeater) {
                 if (method_exists($component, 'getName') && $component->getName() === $repeaterName) {
                     return $component;
                 }
@@ -889,7 +895,7 @@ class Schema extends Component
             'componentCount' => count($components),
         ]);
 
-        $set = new \Laravilt\Support\Utilities\Set($data);
+        $set = new Set($data);
 
         foreach ($components as $component) {
             // Check if this component is the one that changed
@@ -910,7 +916,7 @@ class Schema extends Component
                     if ($callback instanceof \Closure) {
                         \Log::info('[Schema] Executing afterStateUpdated callback for field: '.$changedField);
                         // Execute the callback with dependency injection
-                        $get = new \Laravilt\Support\Utilities\Get($data);
+                        $get = new Get($data);
                         app()->call($callback, [
                             'value' => $value,
                             'get' => $get,
