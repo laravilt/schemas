@@ -79,7 +79,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { useLocalization } from '@/composables/useLocalization';
+import { useLocalization } from '@laravilt/support/composables';
 
 // Initialize localization
 const { trans } = useLocalization();
