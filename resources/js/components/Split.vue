@@ -1,49 +1,62 @@
 <template>
-    <div class="grid md:grid-cols-12 gap-6" :dir="rtl ? 'rtl' : 'ltr'">
-        <div :class="startColumnSpan">
-            <component
-                v-for="(child, index) in startSchema"
-                :key="index"
-                :is="child.component || 'div'"
-                v-bind="child"
+    <div :class="gridClasses" :dir="rtl ? 'rtl' : 'ltr'">
+        <div :class="startClasses">
+            <Schema
+                v-if="startSchema.length > 0"
+                :schema="startSchema"
+                :model-value="modelValue"
+                :form-controller="formController"
+                :form-method="formMethod"
+                @update:model-value="$emit('update:modelValue', $event)"
             />
         </div>
-        <div :class="endColumnSpan">
-            <component
-                v-for="(child, index) in endSchema"
-                :key="index"
-                :is="child.component || 'div'"
-                v-bind="child"
+        <div :class="endClasses">
+            <Schema
+                v-if="endSchema.length > 0"
+                :schema="endSchema"
+                :model-value="modelValue"
+                :form-controller="formController"
+                :form-method="formMethod"
+                @update:model-value="$emit('update:modelValue', $event)"
             />
         </div>
     </div>
 </template>
 
-<script setup>
-const props = defineProps({
-    startSchema: {
-        type: Array,
-        default: () => []
-    },
-    endSchema: {
-        type: Array,
-        default: () => []
-    },
-    startColumnSpan: {
-        type: [String, Number],
-        default: 'md:col-span-6'
-    },
-    endColumnSpan: {
-        type: [String, Number],
-        default: 'md:col-span-6'
-    },
-    rtl: {
-        type: Boolean,
-        default: false
-    },
-    theme: {
-        type: String,
-        default: 'light'
-    }
-});
+<script setup lang="ts">
+import { computed, inject } from 'vue'
+import Schema from './Schema.vue'
+import { getSplitGridClasses, getSplitSpanClasses } from '../lib/layout'
+
+// Inject parent context for reactive fields
+const formController = inject<string | undefined>('formController', undefined)
+const formMethod = inject<string | undefined>('formMethod', 'getSchema')
+
+const props = withDefaults(defineProps<{
+    startSchema?: Array<any>
+    endSchema?: Array<any>
+    startColumnSpan?: string | number
+    endColumnSpan?: string | number
+    fromBreakpoint?: string
+    rtl?: boolean
+    theme?: string
+    modelValue?: Record<string, any>
+}>(), {
+    startSchema: () => [],
+    endSchema: () => [],
+    // Numeric so getSplitSpanClasses applies it from `fromBreakpoint` (a fixed `md:` class would not)
+    startColumnSpan: 6,
+    endColumnSpan: 6,
+    fromBreakpoint: 'md',
+    rtl: false,
+    theme: 'light',
+})
+
+defineEmits<{
+    'update:modelValue': [value: Record<string, any>]
+}>()
+
+const gridClasses = computed(() => getSplitGridClasses(props.fromBreakpoint))
+const startClasses = computed(() => getSplitSpanClasses(props.startColumnSpan, props.fromBreakpoint))
+const endClasses = computed(() => getSplitSpanClasses(props.endColumnSpan, props.fromBreakpoint))
 </script>

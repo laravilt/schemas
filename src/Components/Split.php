@@ -12,9 +12,10 @@ class Split extends Component
 
     protected array $endSchema = [];
 
-    protected string|int $startColumnSpan = 'md:col-span-6';
+    // Numeric so the frontend spans it from $fromBreakpoint (a fixed 'md:col-span-6' ignored sm/default)
+    protected string|int $startColumnSpan = 6;
 
-    protected string|int $endColumnSpan = 'md:col-span-6';
+    protected string|int $endColumnSpan = 6;
 
     protected string $fromBreakpoint = 'md';
 

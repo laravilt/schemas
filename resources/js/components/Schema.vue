@@ -24,9 +24,22 @@
     </div>
 </template>
 
+<script lang="ts">
+// Module-level (shared by all instances): gives a Schema with no enclosing scope a unique 'laravilt:form-scope' id
+let formScopeCounter = 0
+</script>
+
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted, onUnmounted, computed, h, ref, watch, provide, nextTick } from 'vue'
+import { defineAsyncComponent, getCurrentInstance, onMounted, onUnmounted, computed, h, ref, watch, provide, inject, nextTick } from 'vue'
 import ActionButton from '@laravilt/actions/components/ActionButton.vue'
+import { getChildSchemas, isEntryComponent, isSchemaComponent } from '../lib/layout'
+
+// Set by the outermost Schema. Nested Schemas (rendered by Section, Grid, Tabs, Split, Wizard) find it and
+// delegate reactive-field requests and schema updates to it: the server always returns the ROOT schema.
+const ROOT_SCHEMA_KEY = 'laraviltRootSchemaUpdate'
+
+// Form scope id key (plain string, shared with Form and ActionButton without imports)
+const FORM_SCOPE_KEY = 'laravilt:form-scope'
 
 const formRef = ref<HTMLFormElement | null>(null)
 const internalFormData = ref<Record<string, any>>({})
@@ -67,14 +80,14 @@ const internalSchema = ref(props.schema)
 
 // Watch for prop schema changes (from page navigation, etc.)
 watch(() => props.schema, (newSchema) => {
+    // Invalidate in-flight reactive requests: their response is for the replaced schema
+    reactiveRequestId++
     internalSchema.value = newSchema
 })
 
 // Recursively extract all field components and their default values from schema
 const extractFieldDefaults = (schema: Array<any>): Record<string, any> => {
     const defaults: Record<string, any> = {}
-    const schemaComponentTypes = ['tabs', 'section', 'grid']
-    const entryComponentTypes = ['text_entry', 'badge_entry', 'icon_entry', 'image_entry', 'color_entry', 'code_entry', 'key_value_entry', 'repeatable_entry']
 
     // Safety check - ensure schema is an array
     if (!schema || !Array.isArray(schema)) {
@@ -89,28 +102,20 @@ const extractFieldDefaults = (schema: Array<any>): Record<string, any> => {
         }
 
         // Skip entry components (read-only displays, not form fields)
-        if (entryComponentTypes.includes(component.component)) {
+        if (isEntryComponent(component)) {
             continue
         }
 
-        // If it's a tabs component, extract from all tabs
-        if (component.component === 'tabs' && component.tabs && Array.isArray(component.tabs)) {
-            for (const tab of component.tabs) {
-                if (tab.schema && Array.isArray(tab.schema)) {
-                    Object.assign(defaults, extractFieldDefaults(tab.schema))
-                }
+        // Layout components (tabs, section, grid, split, wizard): recurse into every nested schema
+        if (isSchemaComponent(component)) {
+            for (const childSchema of getChildSchemas(component)) {
+                Object.assign(defaults, extractFieldDefaults(childSchema))
             }
-            continue // Don't add the tabs component itself as a field
-        }
-
-        // If it's a schema component (section, grid), recurse into its schema
-        if (schemaComponentTypes.includes(component.component) && component.schema && Array.isArray(component.schema)) {
-            Object.assign(defaults, extractFieldDefaults(component.schema))
-            continue // Don't add the schema component itself as a field
+            continue // Don't add the layout component itself as a field
         }
 
         // If it has a name and component type (it's an actual field), add its default value
-        if (component.name && component.component && !schemaComponentTypes.includes(component.component)) {
+        if (component.name && component.component) {
             // Use defaultValue or default, but NOT value (value could be an object from backend)
             // For hidden fields, also check the 'default' property
             // Use ?? (nullish coalescing) to properly handle false/0 values
@@ -136,6 +141,12 @@ const initializeFormData = () => {
 
 // Handle action-updated data events
 const handleActionUpdatedData = (event: CustomEvent) => {
+    // Ignore data from an action that belongs to another form (unscoped events still apply)
+    const eventScope = (event as any).laraviltFormScope;
+    if (eventScope && eventScope !== formScope) {
+        return;
+    }
+
     const updatedData = event.detail;
 
     if (updatedData && typeof updatedData === 'object') {
@@ -159,6 +170,9 @@ onMounted(() => {
 // Cleanup on unmount
 onUnmounted(() => {
     window.removeEventListener('action-updated-data', handleActionUpdatedData as EventListener);
+
+    // Drop any reactive response that arrives after unmount
+    reactiveRequestId++;
 });
 
 // Watch for internal schema changes (from reactive fields)
@@ -209,7 +223,8 @@ const handleComponentUpdate = async (component: any, value: any) => {
             if (oldData[fieldName] !== fieldValue) {
                 // Find the field in schema and check if it's reactive
                 const field = findFieldInSchema(internalSchema.value, fieldName)
-                if (field && (field.isLive || field.isLazy)) {
+                // Repeaters handle their own reactivity (same rule as updateValue)
+                if (field && field.component !== 'repeater' && (field.isLive || field.isLazy)) {
                     await triggerReactiveFieldUpdate(fieldName, field)
                 }
             }
@@ -249,26 +264,34 @@ const findFieldInSchema = (schema: any[], fieldName: string): any => {
             return component
         }
 
-        // Check nested schemas
-        if (component.component === 'tabs' && component.tabs) {
-            for (const tab of component.tabs) {
-                if (tab.schema) {
-                    const found = findFieldInSchema(tab.schema, fieldName)
-                    if (found) return found
-                }
-            }
-        }
-
-        if (component.schema) {
-            const found = findFieldInSchema(component.schema, fieldName)
+        // Check nested schemas (schema, tabs[].schema, steps[].schema, split start/end)
+        for (const childSchema of getChildSchemas(component)) {
+            const found = findFieldInSchema(childSchema, fieldName)
             if (found) return found
         }
     }
     return null
 }
 
+// Root Schema detection (see ROOT_SCHEMA_KEY)
+const rootUpdateSchema = inject<((schema: any[]) => void) | null>(ROOT_SCHEMA_KEY, null)
+const isRootSchema = rootUpdateSchema === null
+
+// Scope for action-updated-data events (see ActionButton): use the nearest scope an ancestor
+// (Form or outer Schema) provides, so actions inside Form > Schema still update the Form.
+// Only a Schema with no enclosing scope creates its own.
+const formScope: string = inject<string | null>(FORM_SCOPE_KEY, null) ?? `laravilt-schema-${++formScopeCounter}`
+
+// Only the latest reactive-field response may be applied; older ones that arrive late are dropped
+let reactiveRequestId = 0
+
 // Trigger reactive field update
 const triggerReactiveFieldUpdate = async (fieldName: string, field: any) => {
+    // Nested Schemas emit their data up; the root Schema sees the change and sends the request itself
+    if (!isRootSchema) {
+        return
+    }
+
     // Skip if no form controller is configured
     if (!props.formController) {
         console.warn('[Schema] No formController configured, skipping reactive field update')
@@ -280,6 +303,8 @@ const triggerReactiveFieldUpdate = async (fieldName: string, field: any) => {
         : (field.isLive && field.liveDebounce ? field.liveDebounce : 0)
 
     // TODO: Implement debouncing if needed
+    const requestId = ++reactiveRequestId
+
     try {
         const payload = {
             controller: props.formController,
@@ -302,6 +327,11 @@ const triggerReactiveFieldUpdate = async (fieldName: string, field: any) => {
         }
 
         const result = await response.json()
+
+        // A newer request was sent meanwhile: this response is stale
+        if (requestId !== reactiveRequestId) {
+            return
+        }
 
         if (result.schema) {
             updateSchema(result.schema)
@@ -360,6 +390,12 @@ const validateForm = () => {
 
 // Function to update schema (for reactive fields)
 const updateSchema = (newSchema: any[]) => {
+    // Schemas from the server describe the whole form: nested Schemas hand them to the root
+    if (rootUpdateSchema) {
+        rootUpdateSchema(newSchema)
+        return
+    }
+
     // Save current scroll position and focused element
     const scrollX = window.scrollX
     const scrollY = window.scrollY
@@ -368,6 +404,7 @@ const updateSchema = (newSchema: any[]) => {
     // Simply update the schema - Vue's reactivity will handle the updates
     // Since we're using ref(), Vue will detect the change
     internalSchema.value = newSchema
+    emit('update:schema', newSchema)
 
     // Restore scroll position and focus immediately in next tick
     nextTick(() => {
@@ -389,6 +426,8 @@ const updateSchema = (newSchema: any[]) => {
 provide('getFormData', getFormData)
 provide('validateForm', validateForm)
 provide('updateSchema', updateSchema)
+provide(ROOT_SCHEMA_KEY, rootUpdateSchema ?? updateSchema)
+provide(FORM_SCOPE_KEY, formScope)
 provide('schemaId', props.schemaId || null)
 provide('formController', props.formController)
 provide('formMethod', props.formMethod)
@@ -410,18 +449,6 @@ const nonActionComponents = computed(() => {
     return internalSchema.value.filter((item: any) => !isAction(item))
 })
 
-// Check if a component is a schema component (needs entire modelValue, not just a field value)
-const isSchemaComponent = (component: any) => {
-    const schemaComponents = ['tabs', 'section', 'grid']
-    return schemaComponents.includes(component.component)
-}
-
-// Check if a component is an entry component (infolist entry - uses state from backend)
-const isEntryComponent = (component: any) => {
-    const entryComponents = ['text_entry', 'badge_entry', 'icon_entry', 'image_entry', 'color_entry', 'code_entry', 'key_value_entry', 'repeatable_entry']
-    return entryComponents.includes(component.component)
-}
-
 // Determine container spacing based on what we're rendering
 const containerClass = computed(() => {
     if (!internalSchema.value || !Array.isArray(internalSchema.value) || internalSchema.value.length === 0) return ''
@@ -441,6 +468,8 @@ const componentMap: Record<string, any> = {
     tabs: defineAsyncComponent(() => import('./Tabs.vue')),
     section: defineAsyncComponent(() => import('./Section.vue')),
     grid: defineAsyncComponent(() => import('./Grid.vue')),
+    split: defineAsyncComponent(() => import('./Split.vue')),
+    wizard: defineAsyncComponent(() => import('./Wizard.vue')),
 
     // Form field components
     text_input: defineAsyncComponent(() => import('@laravilt/forms/components/fields/TextInput.vue')),
@@ -482,12 +511,19 @@ const componentMap: Record<string, any> = {
     repeatable_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/RepeatableEntry.vue')),
 }
 
+// Globally registered components (app.component), so custom fields and entries render here the way
+// they do on React, where Schema falls back to the component registry under the same names.
+const globalComponents: Record<string, any> = getCurrentInstance()?.appContext.components ?? {}
+
 const getComponent = (component: any) => {
     // Get component type from the component object
     const type = component.component || 'div'
 
-    // Return the mapped component or a div fallback
-    return componentMap[type] || 'div'
+    // The mapped component, then a registered one (as-is or as laravilt-kebab-name), then a div
+    return componentMap[type]
+        || globalComponents[type]
+        || globalComponents[`laravilt-${String(type).replace(/_/g, '-')}`]
+        || 'div'
 }
 
 // Get component props, excluding value and modelValue since we set them explicitly

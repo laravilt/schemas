@@ -76,8 +76,8 @@ it('can set end column span', function () {
 it('has default column spans', function () {
     $props = $this->split->toLaraviltProps();
 
-    expect($props['startColumnSpan'])->toBe('md:col-span-6')
-        ->and($props['endColumnSpan'])->toBe('md:col-span-6');
+    expect($props['startColumnSpan'])->toBe(6)
+        ->and($props['endColumnSpan'])->toBe(6);
 });
 
 it('serializes all schemas to laravilt props', function () {
