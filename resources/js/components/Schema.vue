@@ -80,6 +80,8 @@ const internalSchema = ref(props.schema)
 
 // Watch for prop schema changes (from page navigation, etc.)
 watch(() => props.schema, (newSchema) => {
+    // Invalidate in-flight reactive requests: their response is for the replaced schema
+    reactiveRequestId++
     internalSchema.value = newSchema
 })
 
@@ -168,6 +170,9 @@ onMounted(() => {
 // Cleanup on unmount
 onUnmounted(() => {
     window.removeEventListener('action-updated-data', handleActionUpdatedData as EventListener);
+
+    // Drop any reactive response that arrives after unmount
+    reactiveRequestId++;
 });
 
 // Watch for internal schema changes (from reactive fields)

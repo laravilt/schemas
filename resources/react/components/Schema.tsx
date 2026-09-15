@@ -222,6 +222,8 @@ export default function Schema({
     if (schema !== previousSchemaProp) {
         setPreviousSchemaProp(schema);
         setInternalSchema(schema);
+        // Invalidate in-flight reactive requests: their response is for the replaced schema
+        reactiveRequestId.current++;
     }
 
     const latestSchema = useLatest(internalSchema);
@@ -281,6 +283,9 @@ export default function Schema({
         // Cleanup on unmount
         return () => {
             window.removeEventListener('action-updated-data', handleActionUpdatedData);
+
+            // Drop any reactive response that arrives after unmount
+            reactiveRequestId.current++;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

@@ -44,8 +44,9 @@ const props = withDefaults(defineProps<{
 }>(), {
     startSchema: () => [],
     endSchema: () => [],
-    startColumnSpan: 'md:col-span-6',
-    endColumnSpan: 'md:col-span-6',
+    // Numeric so getSplitSpanClasses applies it from `fromBreakpoint` (a fixed `md:` class would not)
+    startColumnSpan: 6,
+    endColumnSpan: 6,
     fromBreakpoint: 'md',
     rtl: false,
     theme: 'light',
