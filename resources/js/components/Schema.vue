@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted, onUnmounted, computed, h, ref, watch, provide, inject, nextTick } from 'vue'
+import { defineAsyncComponent, getCurrentInstance, onMounted, onUnmounted, computed, h, ref, watch, provide, inject, nextTick } from 'vue'
 import ActionButton from '@laravilt/actions/components/ActionButton.vue'
 import { getChildSchemas, isEntryComponent, isSchemaComponent } from '../lib/layout'
 
@@ -486,12 +486,19 @@ const componentMap: Record<string, any> = {
     repeatable_entry: defineAsyncComponent(() => import('@laravilt/infolists/components/entries/RepeatableEntry.vue')),
 }
 
+// Globally registered components (app.component), so custom fields and entries render here the way
+// they do on React, where Schema falls back to the component registry under the same names.
+const globalComponents: Record<string, any> = getCurrentInstance()?.appContext.components ?? {}
+
 const getComponent = (component: any) => {
     // Get component type from the component object
     const type = component.component || 'div'
 
-    // Return the mapped component or a div fallback
-    return componentMap[type] || 'div'
+    // The mapped component, then a registered one (as-is or as laravilt-kebab-name), then a div
+    return componentMap[type]
+        || globalComponents[type]
+        || globalComponents[`laravilt-${String(type).replace(/_/g, '-')}`]
+        || 'div'
 }
 
 // Get component props, excluding value and modelValue since we set them explicitly
