@@ -1,7 +1,9 @@
 import { cn } from '@/lib/utils';
-import { resolveComponent } from '@laravilt/support/composables/registry';
+import { useSchemaContext } from '@laravilt/support/composables/contexts';
 import { useLocalization } from '@laravilt/support/composables/useLocalization';
+import { resolveIcon } from '@laravilt/support/lib/icons';
 import { useState } from 'react';
+import Schema from './Schema';
 
 export interface WizardProps {
     steps?: Array<any>;
@@ -13,21 +15,14 @@ export interface WizardProps {
     skipButtonLabel?: string;
     rtl?: boolean;
     theme?: string;
+    modelValue?: Record<string, any>;
+    onUpdateModelValue?: (value: Record<string, any>) => void;
 }
 
-// Vue `<component :is="child.component || 'div'" v-bind="child" />`: resolve the registered component, else a plain div
-const renderChild = (child: any, childIndex: number) => {
-    const Component = resolveComponent(child.component);
-
-    if (!Component) {
-        return <div key={childIndex} />;
-    }
-
-    return <Component key={childIndex} {...child} />;
-};
+const EMPTY: any[] = [];
 
 export default function Wizard({
-    steps = [],
+    steps = EMPTY,
     currentStep = 0,
     skippable = false,
     submitButtonLabel = 'Submit',
@@ -35,9 +30,14 @@ export default function Wizard({
     previousButtonLabel = 'Previous',
     skipButtonLabel = 'Skip',
     rtl = false,
+    modelValue,
+    onUpdateModelValue,
 }: WizardProps) {
     // Initialize localization
     const { trans } = useLocalization();
+
+    // Inject parent context for reactive fields
+    const { formController, formMethod = 'getSchema' } = useSchemaContext();
 
     const [currentStepIndex, setCurrentStepIndex] = useState<number>(currentStep);
 
@@ -66,23 +66,26 @@ export default function Wizard({
         <div className="wizard" dir={rtl ? 'rtl' : 'ltr'}>
             {/* Step Indicators */}
             <div className="wizard-steps">
-                {steps.map((step: any, index: number) => (
-                    <div
-                        key={index}
-                        className={cn('wizard-step', {
-                            active: currentStepIndex === index,
-                            completed: currentStepIndex > index,
-                        })}
-                    >
-                        <div className="wizard-step-indicator">
-                            {step.icon ? <span dangerouslySetInnerHTML={{ __html: step.icon }}></span> : <span>{index + 1}</span>}
+                {steps.map((step: any, index: number) => {
+                    // Icon names are resolved to components; step.icon is never inserted as HTML
+                    const Icon = typeof step.icon === 'string' ? resolveIcon(step.icon) : null;
+
+                    return (
+                        <div
+                            key={index}
+                            className={cn('wizard-step', {
+                                active: currentStepIndex === index,
+                                completed: currentStepIndex > index,
+                            })}
+                        >
+                            <div className="wizard-step-indicator">{Icon ? <Icon className="h-4 w-4" /> : <span>{index + 1}</span>}</div>
+                            <div className="wizard-step-label">
+                                <div className="wizard-step-title">{step.label}</div>
+                                {step.description ? <div className="wizard-step-description">{step.description}</div> : null}
+                            </div>
                         </div>
-                        <div className="wizard-step-label">
-                            <div className="wizard-step-title">{step.label}</div>
-                            {step.description ? <div className="wizard-step-description">{step.description}</div> : null}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Step Content */}
@@ -93,7 +96,15 @@ export default function Wizard({
                         className="wizard-step-content"
                         style={currentStepIndex === index ? undefined : { display: 'none' }}
                     >
-                        {(step.schema || []).map(renderChild)}
+                        {Array.isArray(step.schema) && step.schema.length > 0 ? (
+                            <Schema
+                                schema={step.schema}
+                                modelValue={modelValue}
+                                formController={formController}
+                                formMethod={formMethod}
+                                onUpdateModelValue={(value) => onUpdateModelValue?.(value)}
+                            />
+                        ) : null}
                     </div>
                 ))}
             </div>

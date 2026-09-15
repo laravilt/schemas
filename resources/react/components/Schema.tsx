@@ -3,8 +3,10 @@ import { SchemaContext, type SchemaContextValue } from '@laravilt/support/compos
 import { useLatest } from '@laravilt/support/composables/hooks';
 import { resolveComponent } from '@laravilt/support/composables/registry';
 import {
+    createContext,
     lazy,
     Suspense,
+    useContext,
     useCallback,
     useEffect,
     useImperativeHandle,
@@ -16,6 +18,14 @@ import {
     type LazyExoticComponent,
     type Ref,
 } from 'react';
+import { getChildSchemas, isEntryComponent, isSchemaComponent } from '../lib/layout';
+
+/**
+ * Set by the outermost Schema. Nested Schemas (rendered by Section, Grid, Tabs, Split, Wizard) find it and
+ * delegate reactive-field requests and schema updates to it: the server always returns the ROOT schema.
+ * (Vue: provide/inject of `laraviltRootSchemaUpdate`.)
+ */
+const RootSchemaUpdateContext = createContext<((schema: any[]) => void) | null>(null);
 
 /**
  * Methods exposed to parent components via `ref` (Vue `defineExpose`).
@@ -49,6 +59,8 @@ const componentMap: Record<string, AnyComponent> = {
     tabs: load(() => import('./Tabs')),
     section: load(() => import('./Section')),
     grid: load(() => import('./Grid')),
+    split: load(() => import('./Split')),
+    wizard: load(() => import('./Wizard')),
 
     // Form field components
     text_input: load(() => import('@laravilt/forms/components/fields/TextInput')),
@@ -90,18 +102,6 @@ const componentMap: Record<string, AnyComponent> = {
     repeatable_entry: load(() => import('@laravilt/infolists/components/entries/RepeatableEntry')),
 };
 
-const SCHEMA_COMPONENT_TYPES = ['tabs', 'section', 'grid'];
-const ENTRY_COMPONENT_TYPES = [
-    'text_entry',
-    'badge_entry',
-    'icon_entry',
-    'image_entry',
-    'color_entry',
-    'code_entry',
-    'key_value_entry',
-    'repeatable_entry',
-];
-
 // Recursively extract all field components and their default values from schema
 const extractFieldDefaults = (schema: Array<any>): Record<string, any> => {
     const defaults: Record<string, any> = {};
@@ -119,28 +119,20 @@ const extractFieldDefaults = (schema: Array<any>): Record<string, any> => {
         }
 
         // Skip entry components (read-only displays, not form fields)
-        if (ENTRY_COMPONENT_TYPES.includes(component.component)) {
+        if (isEntryComponent(component)) {
             continue;
         }
 
-        // If it's a tabs component, extract from all tabs
-        if (component.component === 'tabs' && component.tabs && Array.isArray(component.tabs)) {
-            for (const tab of component.tabs) {
-                if (tab.schema && Array.isArray(tab.schema)) {
-                    Object.assign(defaults, extractFieldDefaults(tab.schema));
-                }
+        // Layout components (tabs, section, grid, split, wizard): recurse into every nested schema
+        if (isSchemaComponent(component)) {
+            for (const childSchema of getChildSchemas(component)) {
+                Object.assign(defaults, extractFieldDefaults(childSchema));
             }
-            continue; // Don't add the tabs component itself as a field
-        }
-
-        // If it's a schema component (section, grid), recurse into its schema
-        if (SCHEMA_COMPONENT_TYPES.includes(component.component) && component.schema && Array.isArray(component.schema)) {
-            Object.assign(defaults, extractFieldDefaults(component.schema));
-            continue; // Don't add the schema component itself as a field
+            continue; // Don't add the layout component itself as a field
         }
 
         // If it has a name and component type (it's an actual field), add its default value
-        if (component.name && component.component && !SCHEMA_COMPONENT_TYPES.includes(component.component)) {
+        if (component.name && component.component) {
             // Use defaultValue or default, but NOT value (value could be an object from backend)
             // For hidden fields, also check the 'default' property
             // Use ?? (nullish coalescing) to properly handle false/0 values
@@ -158,18 +150,9 @@ const findFieldInSchema = (schema: any[], fieldName: string): any => {
             return component;
         }
 
-        // Check nested schemas
-        if (component.component === 'tabs' && component.tabs) {
-            for (const tab of component.tabs) {
-                if (tab.schema) {
-                    const found = findFieldInSchema(tab.schema, fieldName);
-                    if (found) return found;
-                }
-            }
-        }
-
-        if (component.schema) {
-            const found = findFieldInSchema(component.schema, fieldName);
+        // Check nested schemas (schema, tabs[].schema, steps[].schema, split start/end)
+        for (const childSchema of getChildSchemas(component)) {
+            const found = findFieldInSchema(childSchema, fieldName);
             if (found) return found;
         }
     }
@@ -181,12 +164,6 @@ const isAction = (item: any) => {
     // Actions have hasAction property or don't have a component property
     return item.hasAction === true || (item.name && !item.component);
 };
-
-// Check if a component is a schema component (needs entire modelValue, not just a field value)
-const isSchemaComponent = (component: any) => SCHEMA_COMPONENT_TYPES.includes(component.component);
-
-// Check if a component is an entry component (infolist entry - uses state from backend)
-const isEntryComponent = (component: any) => ENTRY_COMPONENT_TYPES.includes(component.component);
 
 const getComponent = (component: any): AnyComponent | null => {
     // Get component type from the component object
@@ -217,9 +194,17 @@ export default function Schema({
     formController = undefined,
     formMethod = 'getSchema',
     onUpdateModelValue,
+    onUpdateSchema,
     ref,
 }: SchemaProps) {
     const formRef = useRef<HTMLDivElement | null>(null);
+
+    // Root Schema detection (see RootSchemaUpdateContext)
+    const rootUpdateSchema = useContext(RootSchemaUpdateContext);
+    const isRootSchema = rootUpdateSchema === null;
+
+    // Only the latest reactive-field response may be applied; older ones that arrive late are dropped
+    const reactiveRequestId = useRef(0);
 
     // Make schema internally reactive so it can be updated by reactive fields
     const [internalSchema, setInternalSchema] = useState<any[]>(schema);
@@ -241,7 +226,7 @@ export default function Schema({
     }));
     const formDataRef = useRef<Record<string, any>>(internalFormData);
 
-    const latest = useLatest({ formController, formMethod, onUpdateModelValue });
+    const latest = useLatest({ formController, formMethod, onUpdateModelValue, onUpdateSchema, rootUpdateSchema });
 
     const commitFormData = useCallback(
         (update: (previous: Record<string, any>) => Record<string, any>, emit: boolean = true): Record<string, any> => {
@@ -337,6 +322,13 @@ export default function Schema({
     // Function to update schema (for reactive fields)
     const updateSchema = useCallback(
         (newSchema: any[]) => {
+            // Schemas from the server describe the whole form: nested Schemas hand them to the root
+            const root = latest.current.rootUpdateSchema;
+            if (root) {
+                root(newSchema);
+                return;
+            }
+
             // Save current scroll position and focused element
             const scrollX = window.scrollX;
             const scrollY = window.scrollY;
@@ -344,16 +336,22 @@ export default function Schema({
 
             latestSchema.current = newSchema;
             setInternalSchema(newSchema);
+            latest.current.onUpdateSchema?.(newSchema);
 
             // Restore scroll position and focus once the new schema is rendered
             pendingRestore.current = { scrollX, scrollY, activeElement };
             setRestoreTick((tick) => tick + 1);
         },
-        [latestSchema],
+        [latestSchema, latest],
     );
 
     // Trigger reactive field update
     const triggerReactiveFieldUpdate = async (fieldName: string, field: any) => {
+        // Nested Schemas emit their data up; the root Schema sees the change and sends the request itself
+        if (!isRootSchema) {
+            return;
+        }
+
         const { formController: controller, formMethod: method } = latest.current;
 
         // Skip if no form controller is configured
@@ -366,6 +364,8 @@ export default function Schema({
         const debounceMs = field.isLazy ? field.liveDebounce || 500 : field.isLive && field.liveDebounce ? field.liveDebounce : 0;
 
         // TODO: Implement debouncing if needed
+        const requestId = ++reactiveRequestId.current;
+
         try {
             const payload = {
                 controller,
@@ -388,6 +388,11 @@ export default function Schema({
             }
 
             const result = await response.json();
+
+            // A newer request was sent meanwhile: this response is stale
+            if (requestId !== reactiveRequestId.current) {
+                return;
+            }
 
             if (result.schema) {
                 updateSchema(result.schema);
@@ -452,7 +457,8 @@ export default function Schema({
                 if (oldData[fieldName] !== fieldValue) {
                     // Find the field in schema and check if it's reactive
                     const field = findFieldInSchema(latestSchema.current, fieldName);
-                    if (field && (field.isLive || field.isLazy)) {
+                    // Repeaters handle their own reactivity (same rule as updateValue)
+                    if (field && field.component !== 'repeater' && (field.isLive || field.isLazy)) {
                         await triggerReactiveFieldUpdate(fieldName, field);
                     }
                 }
@@ -546,6 +552,7 @@ export default function Schema({
     }
 
     return (
+        <RootSchemaUpdateContext.Provider value={rootUpdateSchema ?? updateSchema}>
         <SchemaContext.Provider value={contextValue}>
             <div ref={formRef} className={containerClass}>
                 {nonActionComponents.map((component: any, index: number) => {
@@ -587,5 +594,6 @@ export default function Schema({
                 ) : null}
             </div>
         </SchemaContext.Provider>
+        </RootSchemaUpdateContext.Provider>
     );
 }

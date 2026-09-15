@@ -1,5 +1,5 @@
 <template>
-    <Tabs :default-value="String(activeTab || 0)" :dir="dir" class="w-full" @update:model-value="handleTabChange">
+    <Tabs :default-value="initialTab" :dir="dir" class="w-full" @update:model-value="handleTabChange">
         <TabsList class="w-full justify-start">
             <TabsTrigger
                 v-for="(tab, index) in tabs"
@@ -81,11 +81,39 @@ const props = defineProps<{
     modelValue?: Record<string, any>
 }>()
 
-const isLoading = ref(false)
-const currentTab = ref(String(props.activeTab || 0))
+// persistTabInQueryString(): the active tab is kept in `?tab=` (the tab id, else its index)
+const TAB_QUERY_KEY = 'tab'
 
-const handleTabChange = async (value: string) => {
+const getTabKey = (tab: any, index: number): string => (tab && tab.id ? String(tab.id) : String(index))
+
+const readTabFromQueryString = (): string | null => {
+    if (!props.persistTabInQueryString || typeof window === 'undefined') return null
+
+    const requested = new URLSearchParams(window.location.search).get(TAB_QUERY_KEY)
+    if (requested === null) return null
+
+    const index = (props.tabs || []).findIndex((tab, i) => getTabKey(tab, i) === requested)
+    return index >= 0 ? String(index) : null
+}
+
+const writeTabToQueryString = (value: string) => {
+    if (!props.persistTabInQueryString || typeof window === 'undefined') return
+
+    const index = Number(value)
+    const url = new URL(window.location.href)
+    url.searchParams.set(TAB_QUERY_KEY, getTabKey(props.tabs?.[index], index))
+    window.history.replaceState(window.history.state, '', url.toString())
+}
+
+const initialTab = readTabFromQueryString() ?? String(props.activeTab || 0)
+
+const isLoading = ref(false)
+const currentTab = ref(initialTab)
+
+const handleTabChange = async (value: string | number) => {
+    value = String(value)
     if (value !== currentTab.value) {
+        writeTabToQueryString(value)
         isLoading.value = true
         currentTab.value = value
         await nextTick()

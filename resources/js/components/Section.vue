@@ -8,6 +8,11 @@
                     collapsible ? 'cursor-pointer select-none' : ''
                 ]"
                 @click="collapsible && toggleCollapse()"
+                :role="collapsible ? 'button' : undefined"
+                :tabindex="collapsible ? 0 : undefined"
+                :aria-expanded="collapsible ? String(!isCollapsed) : undefined"
+                @keydown.enter.prevent="collapsible && toggleCollapse()"
+                @keydown.space.prevent="collapsible && toggleCollapse()"
             >
                 <div
                     v-if="icon && getIconComponent(icon)"

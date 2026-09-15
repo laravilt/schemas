@@ -12,15 +12,43 @@ export interface TabsProps {
     onUpdateModelValue?: (value: Record<string, any>) => void;
 }
 
-export default function Tabs({ tabs, activeTab, modelValue, onUpdateModelValue }: TabsProps) {
+// persistTabInQueryString(): the active tab is kept in `?tab=` (the tab id, else its index)
+const TAB_QUERY_KEY = 'tab';
+
+const getTabKey = (tab: any, index: number): string => (tab && tab.id ? String(tab.id) : String(index));
+
+const readTabFromQueryString = (persist: boolean | undefined, tabs: Array<any>): string | null => {
+    if (!persist || typeof window === 'undefined') return null;
+
+    const requested = new URLSearchParams(window.location.search).get(TAB_QUERY_KEY);
+    if (requested === null) return null;
+
+    const index = (tabs || []).findIndex((tab, i) => getTabKey(tab, i) === requested);
+    return index >= 0 ? String(index) : null;
+};
+
+const writeTabToQueryString = (persist: boolean | undefined, tabs: Array<any>, value: string) => {
+    if (!persist || typeof window === 'undefined') return;
+
+    const index = Number(value);
+    const url = new URL(window.location.href);
+    url.searchParams.set(TAB_QUERY_KEY, getTabKey(tabs?.[index], index));
+    window.history.replaceState(window.history.state, '', url.toString());
+};
+
+export default function Tabs({ tabs, activeTab, persistTabInQueryString, modelValue, onUpdateModelValue }: TabsProps) {
     // Inject parent context for reactive fields
     const { formController, formMethod = 'getSchema' } = useSchemaContext();
 
+    // Evaluated once, like the Vue setup
+    const [initialTab] = useState(() => readTabFromQueryString(persistTabInQueryString, tabs) ?? String(activeTab || 0));
+
     const [isLoading, setIsLoading] = useState(false);
-    const [currentTab, setCurrentTab] = useState(String(activeTab || 0));
+    const [currentTab, setCurrentTab] = useState(initialTab);
 
     const handleTabChange = (value: string) => {
         if (value !== currentTab) {
+            writeTabToQueryString(persistTabInQueryString, tabs, value);
             setIsLoading(true);
             setCurrentTab(value);
             // Small delay to show skeleton
@@ -59,7 +87,7 @@ export default function Tabs({ tabs, activeTab, modelValue, onUpdateModelValue }
     const tabList = tabs || [];
 
     return (
-        <UiTabs defaultValue={String(activeTab || 0)} dir={dir} className="w-full" onValueChange={handleTabChange}>
+        <UiTabs defaultValue={initialTab} dir={dir} className="w-full" onValueChange={handleTabChange}>
             <TabsList className="w-full justify-start">
                 {tabList.map((tab: any, index: number) => {
                     const Icon = tab.icon ? resolveIcon(tab.icon) : null;
