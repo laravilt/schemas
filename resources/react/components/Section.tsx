@@ -47,6 +47,20 @@ export default function Section({
                     <div
                         className={cn('flex items-center gap-3', collapsible ? 'cursor-pointer select-none' : '')}
                         onClick={() => collapsible && toggleCollapse()}
+                        // Keyboard access for the collapsible header (a native button cannot contain the h3/p)
+                        role={collapsible ? 'button' : undefined}
+                        tabIndex={collapsible ? 0 : undefined}
+                        aria-expanded={collapsible ? !isCollapsed : undefined}
+                        onKeyDown={
+                            collapsible
+                                ? (event) => {
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                          event.preventDefault();
+                                          toggleCollapse();
+                                      }
+                                  }
+                                : undefined
+                        }
                     >
                         {Icon ? (
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary flex-shrink-0">
