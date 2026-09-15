@@ -203,11 +203,12 @@ export default function Schema({
     const rootUpdateSchema = useContext(RootSchemaUpdateContext);
     const isRootSchema = rootUpdateSchema === null;
 
-    // Scope for action-updated-data events: the root Schema is a form root with its own id,
-    // nested Schemas inherit it (see ActionButton)
+    // Scope for action-updated-data events (see ActionButton): use the nearest scope an ancestor
+    // (Form or outer Schema) provides, so actions inside Form > Schema still update the Form.
+    // Only a Schema with no enclosing scope creates its own.
     const parentFormScope = useFormScope();
-    const [ownFormScope] = useState(() => (isRootSchema ? createFormScopeId('schema') : null));
-    const formScope = isRootSchema ? ownFormScope : parentFormScope;
+    const [ownFormScope] = useState(() => (parentFormScope === null ? createFormScopeId('schema') : null));
+    const formScope = parentFormScope ?? ownFormScope;
     const latestFormScope = useLatest(formScope);
 
     // Only the latest reactive-field response may be applied; older ones that arrive late are dropped

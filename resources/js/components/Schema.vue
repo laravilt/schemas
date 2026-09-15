@@ -25,7 +25,7 @@
 </template>
 
 <script lang="ts">
-// Module-level (shared by all instances): gives every root Schema a unique 'laravilt:form-scope' id
+// Module-level (shared by all instances): gives a Schema with no enclosing scope a unique 'laravilt:form-scope' id
 let formScopeCounter = 0
 </script>
 
@@ -272,11 +272,10 @@ const findFieldInSchema = (schema: any[], fieldName: string): any => {
 const rootUpdateSchema = inject<((schema: any[]) => void) | null>(ROOT_SCHEMA_KEY, null)
 const isRootSchema = rootUpdateSchema === null
 
-// Scope for action-updated-data events: the root Schema is a form root with its own id,
-// nested Schemas inherit it (see ActionButton)
-const formScope: string | null = isRootSchema
-    ? `laravilt-schema-${++formScopeCounter}`
-    : inject<string | null>(FORM_SCOPE_KEY, null)
+// Scope for action-updated-data events (see ActionButton): use the nearest scope an ancestor
+// (Form or outer Schema) provides, so actions inside Form > Schema still update the Form.
+// Only a Schema with no enclosing scope creates its own.
+const formScope: string = inject<string | null>(FORM_SCOPE_KEY, null) ?? `laravilt-schema-${++formScopeCounter}`
 
 // Only the latest reactive-field response may be applied; older ones that arrive late are dropped
 let reactiveRequestId = 0
