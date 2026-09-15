@@ -1,5 +1,5 @@
 import ActionButton from '@laravilt/actions/components/ActionButton';
-import { SchemaContext, type SchemaContextValue } from '@laravilt/support/composables/contexts';
+import { createFormScopeId, FormScopeContext, SchemaContext, useFormScope, type SchemaContextValue } from '@laravilt/support/composables/contexts';
 import { useLatest } from '@laravilt/support/composables/hooks';
 import { resolveComponent } from '@laravilt/support/composables/registry';
 import {
@@ -203,6 +203,13 @@ export default function Schema({
     const rootUpdateSchema = useContext(RootSchemaUpdateContext);
     const isRootSchema = rootUpdateSchema === null;
 
+    // Scope for action-updated-data events: the root Schema is a form root with its own id,
+    // nested Schemas inherit it (see ActionButton)
+    const parentFormScope = useFormScope();
+    const [ownFormScope] = useState(() => (isRootSchema ? createFormScopeId('schema') : null));
+    const formScope = isRootSchema ? ownFormScope : parentFormScope;
+    const latestFormScope = useLatest(formScope);
+
     // Only the latest reactive-field response may be applied; older ones that arrive late are dropped
     const reactiveRequestId = useRef(0);
 
@@ -250,6 +257,12 @@ export default function Schema({
 
         // Handle action-updated data events
         const handleActionUpdatedData = (event: Event) => {
+            // Ignore data from an action that belongs to another form (unscoped events still apply)
+            const eventScope = (event as any).laraviltFormScope;
+            if (eventScope && eventScope !== latestFormScope.current) {
+                return;
+            }
+
             const updatedData = (event as CustomEvent).detail;
 
             if (updatedData && typeof updatedData === 'object') {
@@ -553,6 +566,7 @@ export default function Schema({
 
     return (
         <RootSchemaUpdateContext.Provider value={rootUpdateSchema ?? updateSchema}>
+        <FormScopeContext.Provider value={formScope}>
         <SchemaContext.Provider value={contextValue}>
             <div ref={formRef} className={containerClass}>
                 {nonActionComponents.map((component: any, index: number) => {
@@ -594,6 +608,7 @@ export default function Schema({
                 ) : null}
             </div>
         </SchemaContext.Provider>
+        </FormScopeContext.Provider>
         </RootSchemaUpdateContext.Provider>
     );
 }

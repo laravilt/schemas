@@ -24,6 +24,11 @@
     </div>
 </template>
 
+<script lang="ts">
+// Module-level (shared by all instances): gives every root Schema a unique 'laravilt:form-scope' id
+let formScopeCounter = 0
+</script>
+
 <script setup lang="ts">
 import { defineAsyncComponent, getCurrentInstance, onMounted, onUnmounted, computed, h, ref, watch, provide, inject, nextTick } from 'vue'
 import ActionButton from '@laravilt/actions/components/ActionButton.vue'
@@ -32,6 +37,9 @@ import { getChildSchemas, isEntryComponent, isSchemaComponent } from '../lib/lay
 // Set by the outermost Schema. Nested Schemas (rendered by Section, Grid, Tabs, Split, Wizard) find it and
 // delegate reactive-field requests and schema updates to it: the server always returns the ROOT schema.
 const ROOT_SCHEMA_KEY = 'laraviltRootSchemaUpdate'
+
+// Form scope id key (plain string, shared with Form and ActionButton without imports)
+const FORM_SCOPE_KEY = 'laravilt:form-scope'
 
 const formRef = ref<HTMLFormElement | null>(null)
 const internalFormData = ref<Record<string, any>>({})
@@ -131,6 +139,12 @@ const initializeFormData = () => {
 
 // Handle action-updated data events
 const handleActionUpdatedData = (event: CustomEvent) => {
+    // Ignore data from an action that belongs to another form (unscoped events still apply)
+    const eventScope = (event as any).laraviltFormScope;
+    if (eventScope && eventScope !== formScope) {
+        return;
+    }
+
     const updatedData = event.detail;
 
     if (updatedData && typeof updatedData === 'object') {
@@ -257,6 +271,12 @@ const findFieldInSchema = (schema: any[], fieldName: string): any => {
 // Root Schema detection (see ROOT_SCHEMA_KEY)
 const rootUpdateSchema = inject<((schema: any[]) => void) | null>(ROOT_SCHEMA_KEY, null)
 const isRootSchema = rootUpdateSchema === null
+
+// Scope for action-updated-data events: the root Schema is a form root with its own id,
+// nested Schemas inherit it (see ActionButton)
+const formScope: string | null = isRootSchema
+    ? `laravilt-schema-${++formScopeCounter}`
+    : inject<string | null>(FORM_SCOPE_KEY, null)
 
 // Only the latest reactive-field response may be applied; older ones that arrive late are dropped
 let reactiveRequestId = 0
@@ -403,6 +423,7 @@ provide('getFormData', getFormData)
 provide('validateForm', validateForm)
 provide('updateSchema', updateSchema)
 provide(ROOT_SCHEMA_KEY, rootUpdateSchema ?? updateSchema)
+provide(FORM_SCOPE_KEY, formScope)
 provide('schemaId', props.schemaId || null)
 provide('formController', props.formController)
 provide('formMethod', props.formMethod)
